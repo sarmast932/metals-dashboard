@@ -6,6 +6,7 @@
     <title>🏆 metals_dashboard</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        /* همان استایل‌های قبلی را اینجا بگذارید */
         * {
             margin: 0;
             padding: 0;
@@ -401,20 +402,20 @@
             localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
         }
 
-        // ==================== دریافت قیمت ====================
+        // ==================== دریافت قیمت با پروکسی ====================
         let lastPrices = { gold: null, silver: null, goldChange: 0, silverChange: 0 };
         
         async function fetchPrices() {
             try {
-                // استفاده از CORS proxy
-                const proxy = 'https://cors-anywhere.herokuapp.com/';
+                // استفاده از پروکسی رایگان برای حل مشکل CORS
+                const proxy = 'https://corsproxy.io/?';
                 
                 // دریافت قیمت طلا
-                const goldRes = await fetch(proxy + 'https://inv.charisma.ir/pub/Plans/Gold');
+                const goldRes = await fetch(proxy + encodeURIComponent('https://inv.charisma.ir/pub/Plans/Gold'));
                 const goldData = await goldRes.json();
                 
                 // دریافت قیمت نقره
-                const silverRes = await fetch(proxy + 'https://inv.charisma.ir/pub/Plans/silver');
+                const silverRes = await fetch(proxy + encodeURIComponent('https://inv.charisma.ir/pub/Plans/silver'));
                 const silverData = await silverRes.json();
 
                 if (goldData.isSuccess) {
@@ -439,7 +440,7 @@
                 
             } catch (error) {
                 console.error('خطا در دریافت قیمت:', error);
-                tg.showAlert('خطا در ارتباط با سرور. لطفاً دوباره تلاش کنید.');
+                document.getElementById('lastUpdate').innerText = 'خطا در دریافت اطلاعات';
             }
         }
 
