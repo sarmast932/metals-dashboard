@@ -6,7 +6,6 @@
     <title>🏆 metals_dashboard</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* همان استایل‌های قبلی را اینجا بگذارید */
         * {
             margin: 0;
             padding: 0;
@@ -156,6 +155,29 @@
         .profit-positive { color: #00a86b; }
         .profit-negative { color: #ff4d4d; }
         .hidden { display: none; }
+        .error-message {
+            background: #fff3f3;
+            color: #d32f2f;
+            padding: 12px;
+            border-radius: 12px;
+            margin: 16px 0;
+            text-align: center;
+            border: 1px solid #ffcdd2;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--tg-theme-button-color, #40a7e3);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -199,8 +221,6 @@
         <div class="menu-item" onclick="showSettings()">⚙️ تنظیمات</div>
     </div>
 
-    <!-- مودال‌های مختلف -->
-    
     <!-- مودال پرتفوی -->
     <div id="portfolioModal" class="modal">
         <div class="modal-content">
@@ -240,7 +260,7 @@
         </div>
     </div>
 
-    <!-- مودال افزودن نقره (مشابه طلا) -->
+    <!-- مودال افزودن نقره -->
     <div id="addSilverModal" class="modal">
         <div class="modal-content">
             <h2 style="margin-bottom: 20px;">➕ افزودن نقره</h2>
@@ -352,7 +372,7 @@
     <script>
         // تنظیمات اولیه تلگرام
         const tg = window.Telegram.WebApp;
-        tg.expand(); // تمام صفحه شدن
+        tg.expand();
         tg.ready();
 
         // ==================== مدیریت دیتابیس محلی ====================
@@ -402,45 +422,89 @@
             localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
         }
 
-        // ==================== دریافت قیمت با پروکسی ====================
+        // ==================== دریافت قیمت ====================
         let lastPrices = { gold: null, silver: null, goldChange: 0, silverChange: 0 };
+        let retryCount = 0;
+        const MAX_RETRIES = 3;
         
         async function fetchPrices() {
             try {
-                // استفاده از پروکسی رایگان برای حل مشکل CORS
-                const proxy = 'https://corsproxy.io/?';
+                document.getElementById('lastUpdate').innerHTML = '<span class="loading"></span> در حال دریافت...';
                 
-                // دریافت قیمت طلا
-                const goldRes = await fetch(proxy + encodeURIComponent('https://inv.charisma.ir/pub/Plans/Gold'));
-                const goldData = await goldRes.json();
+                // استفاده از چند پروکسی مختلف برای افزایش شانس موفقیت
+                const proxies = [
+                    'https://api.allorigins.win/raw?url=',
+                    'https://corsproxy.io/?',
+                    'https://thingproxy.freeboard.io/fetch/'
+                ];
                 
-                // دریافت قیمت نقره
-                const silverRes = await fetch(proxy + encodeURIComponent('https://inv.charisma.ir/pub/Plans/silver'));
-                const silverData = await silverRes.json();
+                // امتحان کردن پروکسی‌ها به ترتیب
+                let goldData = null;
+                let silverData = null;
+                
+                for (const proxy of proxies) {
+                    try {
+                        if (!goldData) {
+                            const goldRes = await fetch(proxy + encodeURIComponent('https://inv.charisma.ir/pub/Plans/Gold'));
+                            if (goldRes.ok) {
+                                goldData = await goldRes.json();
+                            }
+                        }
+                        
+                        if (!silverData) {
+                            const silverRes = await fetch(proxy + encodeURIComponent('https://inv.charisma.ir/pub/Plans/silver'));
+                            if (silverRes.ok) {
+                                silverData = await silverRes.json();
+                            }
+                        }
+                        
+                        if (goldData && silverData) break;
+                    } catch (e) {
+                        console.log('پروکسی ناموفق:', proxy);
+                    }
+                }
 
-                if (goldData.isSuccess) {
+                if (goldData?.isSuccess) {
                     const current = Math.floor(goldData.data.latestIndexPrice.index / 10);
                     const prev = Math.floor(goldData.data.prevIndexPrice.index / 10);
                     
                     lastPrices.gold = current;
                     lastPrices.goldChange = prev ? ((current - prev) / prev * 100).toFixed(2) : 0;
+                    retryCount = 0;
                 }
 
-                if (silverData.isSuccess) {
+                if (silverData?.isSuccess) {
                     const current = Math.floor(silverData.data.latestIndexPrice.index / 10);
                     const prev = Math.floor(silverData.data.prevIndexPrice.index / 10);
                     
                     lastPrices.silver = current;
                     lastPrices.silverChange = prev ? ((current - prev) / prev * 100).toFixed(2) : 0;
+                    retryCount = 0;
                 }
 
                 updatePriceDisplay();
                 checkAlerts();
-                document.getElementById('lastUpdate').innerText = new Date().toLocaleString('fa-IR');
+                
+                const now = new Date();
+                document.getElementById('lastUpdate').innerText = 'آخرین بروزرسانی: ' + now.toLocaleTimeString('fa-IR');
                 
             } catch (error) {
                 console.error('خطا در دریافت قیمت:', error);
-                document.getElementById('lastUpdate').innerText = 'خطا در دریافت اطلاعات';
+                retryCount++;
+                
+                if (retryCount < MAX_RETRIES) {
+                    document.getElementById('lastUpdate').innerHTML = `⚠️ خطا، تلاش مجدد (${retryCount}/${MAX_RETRIES})...`;
+                    setTimeout(fetchPrices, 5000);
+                } else {
+                    document.getElementById('lastUpdate').innerHTML = '❌ خطا در دریافت اطلاعات';
+                    
+                    // نمایش خطا به کاربر
+                    tg.showPopup({
+                        title: '⚠️ خطا در ارتباط',
+                        message: 'دریافت قیمت‌ها با مشکل مواجه شد. لطفاً صفحه را رفرش کنید.',
+                        buttons: [{ type: 'ok' }]
+                    });
+                }
             }
         }
 
@@ -692,7 +756,6 @@
             saveSettingsData();
             closeModal('settingsModal');
             
-            // تنظیم مجدد تایمر
             if (window.updateInterval) {
                 clearInterval(window.updateInterval);
             }
@@ -706,14 +769,12 @@
             document.getElementById(modalId).style.display = 'none';
         }
 
-        // بستن مودال با کلیک روی پس‌زمینه
         window.onclick = function(event) {
             if (event.target.classList.contains('modal')) {
                 event.target.style.display = 'none';
             }
         }
 
-        // ==================== به‌روزرسانی کلی UI ====================
         function updateUI() {
             updatePriceDisplay();
         }
@@ -722,15 +783,12 @@
         loadData();
         fetchPrices();
         
-        // به‌روزرسانی دوره‌ای
         window.updateInterval = setInterval(fetchPrices, settings.reportInterval * 60 * 1000);
 
-        // دکمه اصلی تلگرام
         tg.MainButton.setText("📊 بروزرسانی");
         tg.MainButton.onClick(fetchPrices);
         tg.MainButton.show();
 
-        // نمایش پیام خوش‌آمد
         tg.showPopup({
             title: '🏆 به metals_dashboard خوش آمدید',
             message: 'این اپلیکیشن به شما امکان پایش لحظه‌ای قیمت طلا و نقره، مدیریت پرتفوی و دریافت هشدار را می‌دهد.',
