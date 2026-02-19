@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏆 metals_dashboard</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        body {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 16px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .last-update {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+        .price-card {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+        }
+        .price-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .metal-name {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .price {
+            font-size: 24px;
+            font-weight: bold;
+            direction: ltr;
+        }
+        .change {
+            font-size: 14px;
+            padding: 4px 8px;
+            border-radius: 20px;
+        }
+        .change.positive { background: #e6f7e6; color: #00a86b; }
+        .change.negative { background: #ffe6e6; color: #ff4d4d; }
+        
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin: 24px 0;
+        }
+        .menu-item {
+            background: var(--tg-theme-button-color, #40a7e3);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            padding: 16px;
+            border-radius: 14px;
+            text-align: center;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .menu-item:active {
+            opacity: 0.8;
+        }
+        .menu-item.secondary {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            color: var(--tg-theme-text-color, #000000);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-content {
+            background: var(--tg-theme-bg-color, #ffffff);
+            border-radius: 24px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .input-group {
+            margin-bottom: 16px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--tg-theme-hint-color, #dddddd);
+            border-radius: 12px;
+            font-size: 16px;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
+        .button {
+            background: var(--tg-theme-button-color, #40a7e3);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            padding: 14px 24px;
+            border-radius: 14px;
+            font-weight: 600;
+            font-size: 16px;
+            width: 100%;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+        .button.danger {
+            background: #ff4d4d;
+        }
+        .holdings-list {
+            margin: 16px 0;
+        }
+        .holding-item {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .profit-positive { color: #00a86b; }
+        .profit-negative { color: #ff4d4d; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span class="title">🏆 metals_dashboard</span>
+        <span class="last-update" id="lastUpdate">در حال بروزرسانی...</span>
+    </div>
+
+    <!-- کارت‌های قیمت -->
+    <div class="price-card" id="goldCard">
+        <div class="price-row">
+            <span class="metal-name">🏅 طلا</span>
+            <span class="change" id="goldChange">0%</span>
+        </div>
+        <div class="price-row">
+            <span>۲۴ عیار</span>
+            <span class="price" id="goldPrice24">---</span>
+        </div>
+        <div class="price-row">
+            <span>۱۸ عیار</span>
+            <span class="price" id="goldPrice18">---</span>
+        </div>
+    </div>
+
+    <div class="price-card" id="silverCard">
+        <div class="price-row">
+            <span class="metal-name">🥈 نقره</span>
+            <span class="change" id="silverChange">0%</span>
+        </div>
+        <div class="price-row">
+            <span>قیمت</span>
+            <span class="price" id="silverPrice">---</span>
+        </div>
+    </div>
+
+    <!-- منوی اصلی -->
+    <div class="menu-grid">
+        <div class="menu-item" onclick="showPortfolio()">💼 پرتفوی</div>
+        <div class="menu-item" onclick="showProfit()">💰 سود/زیان</div>
+        <div class="menu-item" onclick="showAlerts()">🔔 هشدارها</div>
+        <div class="menu-item" onclick="showSettings()">⚙️ تنظیمات</div>
+    </div>
+
+    <!-- مودال‌های مختلف -->
+    
+    <!-- مودال پرتفوی -->
+    <div id="portfolioModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px;">💼 مدیریت پرتفوی</h2>
+            
+            <div class="menu-grid" style="grid-template-columns: 1fr 1fr; margin: 0 0 16px 0;">
+                <div class="menu-item secondary" onclick="showAddGold()">➕ افزودن طلا</div>
+                <div class="menu-item secondary" onclick="showAddSilver()">➕ افزودن نقره</div>
+            </div>
+
+            <div id="holdingsList" class="holdings-list">
+                <!-- لیست دارایی‌ها با JavaScript پر می‌شود -->
+            </div>
+
+            <button class="button danger" onclick="clearPortfolio()" style="margin-top: 16px;">🗑 حذف همه</button>
+            <button class="button" onclick="closeModal('portfolioModal')">🔙 بازگشت</button>
+        </div>
+    </div>
+
+    <!-- مودال افزودن طلا -->
+    <div id="addGoldModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px;">➕ افزودن طلا</h2>
+            
+            <div class="input-group">
+                <label>مقدار (گرم)</label>
+                <input type="number" id="goldAmount" placeholder="مثلاً ۱۰">
+            </div>
+            
+            <div class="input-group">
+                <label>قیمت خرید (تومان)</label>
+                <input type="number" id="goldPrice" placeholder="مثلاً ۳۲۰۰۰۰۰">
+            </div>
+
+            <button class="button" onclick="addGold()">✅ ثبت</button>
+            <button class="button secondary" onclick="closeModal('addGoldModal'); showPortfolio()">🔙 بازگشت</button>
+        </div>
+    </div>
+
+    <!-- مودال افزودن نقره (مشابه طلا) -->
+    <div id="addSilverModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px;">➕ افزودن نقره</h2>
+            
+            <div class="input-group">
+                <label>مقدار (گرم)</label>
+                <input type="number" id="silverAmount" placeholder="مثلاً ۵۰۰">
+            </div>
+            
+            <div class="input-group">
+                <label>قیمت خرید (تومان)</label>
+                <input type="number" id="silverBuyPrice" placeholder="مثلاً ۴۵۰۰۰">
+            </div>
+
+            <button class="button" onclick="addSilver()">✅ ثبت</button>
+            <button class="button secondary" onclick="closeModal('addSilverModal'); showPortfolio()">🔙 بازگشت</button>
+        </div>
+    </div>
+
+    <!-- مودال سود/زیان -->
+    <div id="profitModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px;">💰 گزارش سود/زیان</h2>
+            
+            <div id="profitGold" style="margin-bottom: 16px; padding: 12px; background: var(--tg-theme-secondary-bg-color); border-radius: 12px;">
+                <!-- سود طلا -->
+            </div>
+            
+            <div id="profitSilver" style="margin-bottom: 16px; padding: 12px; background: var(--tg-theme-secondary-bg-color); border-radius: 12px;">
+                <!-- سود نقره -->
+            </div>
+
+            <button class="button" onclick="closeModal('profitModal')">🔙 بازگشت</button>
+        </div>
+    </div>
+
+    <!-- مودال هشدارها -->
+    <div id="alertsModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px;">🔔 تنظیم هشدار</h2>
+            
+            <div style="margin-bottom: 20px;">
+                <h3>🏅 طلا</h3>
+                <div class="input-group">
+                    <label>حداقل قیمت</label>
+                    <input type="number" id="goldMin" value="2000000">
+                </div>
+                <div class="input-group">
+                    <label>حداکثر قیمت</label>
+                    <input type="number" id="goldMax" value="5000000">
+                </div>
+                <div style="display: flex; align-items: center; margin-bottom: 16px;">
+                    <input type="checkbox" id="goldEnabled" checked style="margin-left: 8px;">
+                    <label>فعال باشد</label>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <h3>🥈 نقره</h3>
+                <div class="input-group">
+                    <label>حداقل قیمت</label>
+                    <input type="number" id="silverMin" value="30000">
+                </div>
+                <div class="input-group">
+                    <label>حداکثر قیمت</label>
+                    <input type="number" id="silverMax" value="80000">
+                </div>
+                <div style="display: flex; align-items: center; margin-bottom: 16px;">
+                    <input type="checkbox" id="silverEnabled" checked style="margin-left: 8px;">
+                    <label>فعال باشد</label>
+                </div>
+            </div>
+
+            <button class="button" onclick="saveAlerts()">💾 ذخیره</button>
+            <button class="button secondary" onclick="closeModal('alertsModal')">🔙 بازگشت</button>
+        </div>
+    </div>
+
+    <!-- مودال تنظیمات -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px;">⚙️ تنظیمات</h2>
+            
+            <div class="input-group">
+                <label>فاصله گزارش (دقیقه)</label>
+                <select id="reportInterval">
+                    <option value="1">۱ دقیقه</option>
+                    <option value="5" selected>۵ دقیقه</option>
+                    <option value="10">۱۰ دقیقه</option>
+                    <option value="15">۱۵ دقیقه</option>
+                    <option value="30">۳۰ دقیقه</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>نوع گزارش</label>
+                <select id="reportType">
+                    <option value="both" selected>طلا و نقره</option>
+                    <option value="gold">فقط طلا</option>
+                    <option value="silver">فقط نقره</option>
+                </select>
+            </div>
+
+            <button class="button" onclick="saveSettings()">💾 ذخیره</button>
+            <button class="button secondary" onclick="closeModal('settingsModal')">🔙 بازگشت</button>
+        </div>
+    </div>
+
+    <script>
+        // تنظیمات اولیه تلگرام
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // تمام صفحه شدن
+        tg.ready();
+
+        // ==================== مدیریت دیتابیس محلی ====================
+        const STORAGE_KEYS = {
+            PORTFOLIO: 'metals_portfolio',
+            ALERTS: 'metals_alerts',
+            SETTINGS: 'metals_settings'
+        };
+
+        let portfolio = { holdings: [] };
+        let alerts = {
+            gold: { enabled: true, min: 2000000, max: 5000000 },
+            silver: { enabled: true, min: 30000, max: 80000 }
+        };
+        let settings = {
+            reportInterval: 5,
+            reportType: 'both'
+        };
+
+        // بارگذاری داده‌ها
+        function loadData() {
+            try {
+                const savedPortfolio = localStorage.getItem(STORAGE_KEYS.PORTFOLIO);
+                if (savedPortfolio) portfolio = JSON.parse(savedPortfolio);
+                
+                const savedAlerts = localStorage.getItem(STORAGE_KEYS.ALERTS);
+                if (savedAlerts) alerts = JSON.parse(savedAlerts);
+                
+                const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+                if (savedSettings) settings = JSON.parse(savedSettings);
+            } catch (e) {
+                console.error('خطا در بارگذاری:', e);
+            }
+        }
+
+        // ذخیره داده‌ها
+        function savePortfolio() {
+            localStorage.setItem(STORAGE_KEYS.PORTFOLIO, JSON.stringify(portfolio));
+            updateUI();
+        }
+
+        function saveAlertsData() {
+            localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(alerts));
+        }
+
+        function saveSettingsData() {
+            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+        }
+
+        // ==================== دریافت قیمت ====================
+        let lastPrices = { gold: null, silver: null, goldChange: 0, silverChange: 0 };
+        
+        async function fetchPrices() {
+            try {
+                // استفاده از CORS proxy
+                const proxy = 'https://cors-anywhere.herokuapp.com/';
+                
+                // دریافت قیمت طلا
+                const goldRes = await fetch(proxy + 'https://inv.charisma.ir/pub/Plans/Gold');
+                const goldData = await goldRes.json();
+                
+                // دریافت قیمت نقره
+                const silverRes = await fetch(proxy + 'https://inv.charisma.ir/pub/Plans/silver');
+                const silverData = await silverRes.json();
+
+                if (goldData.isSuccess) {
+                    const current = Math.floor(goldData.data.latestIndexPrice.index / 10);
+                    const prev = Math.floor(goldData.data.prevIndexPrice.index / 10);
+                    
+                    lastPrices.gold = current;
+                    lastPrices.goldChange = prev ? ((current - prev) / prev * 100).toFixed(2) : 0;
+                }
+
+                if (silverData.isSuccess) {
+                    const current = Math.floor(silverData.data.latestIndexPrice.index / 10);
+                    const prev = Math.floor(silverData.data.prevIndexPrice.index / 10);
+                    
+                    lastPrices.silver = current;
+                    lastPrices.silverChange = prev ? ((current - prev) / prev * 100).toFixed(2) : 0;
+                }
+
+                updatePriceDisplay();
+                checkAlerts();
+                document.getElementById('lastUpdate').innerText = new Date().toLocaleString('fa-IR');
+                
+            } catch (error) {
+                console.error('خطا در دریافت قیمت:', error);
+                tg.showAlert('خطا در ارتباط با سرور. لطفاً دوباره تلاش کنید.');
+            }
+        }
+
+        function updatePriceDisplay() {
+            if (lastPrices.gold) {
+                document.getElementById('goldPrice24').innerText = lastPrices.gold.toLocaleString();
+                document.getElementById('goldPrice18').innerText = Math.floor(lastPrices.gold * 0.75).toLocaleString();
+                
+                const goldChangeElem = document.getElementById('goldChange');
+                goldChangeElem.innerText = `${lastPrices.goldChange > 0 ? '+' : ''}${lastPrices.goldChange}%`;
+                goldChangeElem.className = `change ${lastPrices.goldChange >= 0 ? 'positive' : 'negative'}`;
+            }
+
+            if (lastPrices.silver) {
+                document.getElementById('silverPrice').innerText = lastPrices.silver.toLocaleString();
+                
+                const silverChangeElem = document.getElementById('silverChange');
+                silverChangeElem.innerText = `${lastPrices.silverChange > 0 ? '+' : ''}${lastPrices.silverChange}%`;
+                silverChangeElem.className = `change ${lastPrices.silverChange >= 0 ? 'positive' : 'negative'}`;
+            }
+        }
+
+        function checkAlerts() {
+            if (!lastPrices.gold || !lastPrices.silver) return;
+
+            const alerts_messages = [];
+
+            if (alerts.gold.enabled) {
+                if (lastPrices.gold < alerts.gold.min) {
+                    alerts_messages.push(`⚠️ طلا به ${lastPrices.gold.toLocaleString()} رسید (کمتر از ${alerts.gold.min.toLocaleString()})`);
+                }
+                if (lastPrices.gold > alerts.gold.max) {
+                    alerts_messages.push(`⚠️ طلا به ${lastPrices.gold.toLocaleString()} رسید (بیشتر از ${alerts.gold.max.toLocaleString()})`);
+                }
+            }
+
+            if (alerts.silver.enabled) {
+                if (lastPrices.silver < alerts.silver.min) {
+                    alerts_messages.push(`⚠️ نقره به ${lastPrices.silver.toLocaleString()} رسید (کمتر از ${alerts.silver.min.toLocaleString()})`);
+                }
+                if (lastPrices.silver > alerts.silver.max) {
+                    alerts_messages.push(`⚠️ نقره به ${lastPrices.silver.toLocaleString()} رسید (بیشتر از ${alerts.silver.max.toLocaleString()})`);
+                }
+            }
+
+            if (alerts_messages.length > 0) {
+                tg.showPopup({
+                    title: '🔔 هشدار قیمت',
+                    message: alerts_messages.join('\n\n'),
+                    buttons: [{ type: 'ok' }]
+                });
+            }
+        }
+
+        // ==================== مدیریت پرتفوی ====================
+        function showPortfolio() {
+            const modal = document.getElementById('portfolioModal');
+            updateHoldingsList();
+            modal.style.display = 'flex';
+        }
+
+        function updateHoldingsList() {
+            const listElem = document.getElementById('holdingsList');
+            if (portfolio.holdings.length === 0) {
+                listElem.innerHTML = '<p style="text-align: center; color: #999;">پرتفوی شما خالی است</p>';
+                return;
+            }
+
+            let html = '';
+            portfolio.holdings.forEach(h => {
+                html += `
+                    <div class="holding-item">
+                        <div>
+                            ${h.metal === 'gold' ? '🏅' : '🥈'} ${h.amount} گرم
+                            <br>
+                            <small>${h.price.toLocaleString()} تومان</small>
+                        </div>
+                        <button onclick="removeHolding('${h.id}')" style="background: none; border: none; color: #ff4d4d; font-size: 20px; cursor: pointer;">🗑</button>
+                    </div>
+                `;
+            });
+            listElem.innerHTML = html;
+        }
+
+        function showAddGold() {
+            closeModal('portfolioModal');
+            document.getElementById('addGoldModal').style.display = 'flex';
+        }
+
+        function showAddSilver() {
+            closeModal('portfolioModal');
+            document.getElementById('addSilverModal').style.display = 'flex';
+        }
+
+        function addGold() {
+            const amount = document.getElementById('goldAmount').value;
+            const price = document.getElementById('goldPrice').value;
+
+            if (!amount || !price) {
+                tg.showAlert('لطفاً مقدار و قیمت را وارد کنید');
+                return;
+            }
+
+            const holding = {
+                id: Date.now() + '-' + Math.random(),
+                metal: 'gold',
+                amount: parseFloat(amount),
+                price: parseFloat(price),
+                date: new Date().toISOString()
+            };
+
+            portfolio.holdings.push(holding);
+            savePortfolio();
+
+            document.getElementById('goldAmount').value = '';
+            document.getElementById('goldPrice').value = '';
+
+            closeModal('addGoldModal');
+            showPortfolio();
+        }
+
+        function addSilver() {
+            const amount = document.getElementById('silverAmount').value;
+            const price = document.getElementById('silverBuyPrice').value;
+
+            if (!amount || !price) {
+                tg.showAlert('لطفاً مقدار و قیمت را وارد کنید');
+                return;
+            }
+
+            const holding = {
+                id: Date.now() + '-' + Math.random(),
+                metal: 'silver',
+                amount: parseFloat(amount),
+                price: parseFloat(price),
+                date: new Date().toISOString()
+            };
+
+            portfolio.holdings.push(holding);
+            savePortfolio();
+
+            document.getElementById('silverAmount').value = '';
+            document.getElementById('silverBuyPrice').value = '';
+
+            closeModal('addSilverModal');
+            showPortfolio();
+        }
+
+        function removeHolding(id) {
+            portfolio.holdings = portfolio.holdings.filter(h => h.id !== id);
+            savePortfolio();
+            updateHoldingsList();
+        }
+
+        function clearPortfolio() {
+            if (confirm('آیا از حذف همه دارایی‌ها اطمینان دارید؟')) {
+                portfolio.holdings = [];
+                savePortfolio();
+                updateHoldingsList();
+            }
+        }
+
+        // ==================== محاسبه سود/زیان ====================
+        function showProfit() {
+            const modal = document.getElementById('profitModal');
+            
+            const goldProfit = calculateMetalProfit('gold');
+            const silverProfit = calculateMetalProfit('silver');
+
+            document.getElementById('profitGold').innerHTML = goldProfit || '🏅 هیچ دارایی طلایی ثبت نشده';
+            document.getElementById('profitSilver').innerHTML = silverProfit || '🥈 هیچ دارایی نقره‌ای ثبت نشده';
+
+            modal.style.display = 'flex';
+        }
+
+        function calculateMetalProfit(metal) {
+            const holdings = portfolio.holdings.filter(h => h.metal === metal);
+            if (holdings.length === 0) return null;
+
+            const totalAmount = holdings.reduce((sum, h) => sum + h.amount, 0);
+            const totalCost = holdings.reduce((sum, h) => sum + (h.amount * h.price), 0);
+            const avgPrice = totalCost / totalAmount;
+
+            const currentPrice = metal === 'gold' ? lastPrices.gold : lastPrices.silver;
+            if (!currentPrice) return '❌ قیمت فعلی در دسترس نیست';
+
+            const currentValue = totalAmount * currentPrice;
+            const commission = currentValue * 0.01;
+            const netValue = currentValue - commission;
+            const profit = netValue - totalCost;
+            const profitPercent = (profit / totalCost) * 100;
+
+            const metalName = metal === 'gold' ? 'طلا' : 'نقره';
+            const sign = profit >= 0 ? '🟢' : '🔴';
+            
+            return `
+                <div style="margin-bottom: 8px;"><b>${metal === 'gold' ? '🏅' : '🥈'} ${metalName}</b></div>
+                <div>مقدار کل: ${totalAmount.toLocaleString()} گرم</div>
+                <div>میانگین خرید: ${avgPrice.toLocaleString()} تومان</div>
+                <div>قیمت فعلی: ${currentPrice.toLocaleString()} تومان</div>
+                <div style="margin-top: 8px; font-weight: bold; color: ${profit >= 0 ? '#00a86b' : '#ff4d4d'}">
+                    ${sign} ${profit >= 0 ? 'سود' : 'زیان'}: ${Math.abs(profit).toLocaleString()} تومان (${profitPercent.toFixed(2)}%)
+                </div>
+            `;
+        }
+
+        // ==================== مدیریت هشدارها ====================
+        function showAlerts() {
+            document.getElementById('goldMin').value = alerts.gold.min;
+            document.getElementById('goldMax').value = alerts.gold.max;
+            document.getElementById('goldEnabled').checked = alerts.gold.enabled;
+            
+            document.getElementById('silverMin').value = alerts.silver.min;
+            document.getElementById('silverMax').value = alerts.silver.max;
+            document.getElementById('silverEnabled').checked = alerts.silver.enabled;
+
+            document.getElementById('alertsModal').style.display = 'flex';
+        }
+
+        function saveAlerts() {
+            alerts.gold = {
+                min: parseInt(document.getElementById('goldMin').value),
+                max: parseInt(document.getElementById('goldMax').value),
+                enabled: document.getElementById('goldEnabled').checked
+            };
+            
+            alerts.silver = {
+                min: parseInt(document.getElementById('silverMin').value),
+                max: parseInt(document.getElementById('silverMax').value),
+                enabled: document.getElementById('silverEnabled').checked
+            };
+
+            saveAlertsData();
+            closeModal('alertsModal');
+            tg.showAlert('✅ تنظیمات هشدار ذخیره شد');
+        }
+
+        // ==================== مدیریت تنظیمات ====================
+        function showSettings() {
+            document.getElementById('reportInterval').value = settings.reportInterval;
+            document.getElementById('reportType').value = settings.reportType;
+            document.getElementById('settingsModal').style.display = 'flex';
+        }
+
+        function saveSettings() {
+            settings.reportInterval = parseInt(document.getElementById('reportInterval').value);
+            settings.reportType = document.getElementById('reportType').value;
+            
+            saveSettingsData();
+            closeModal('settingsModal');
+            
+            // تنظیم مجدد تایمر
+            if (window.updateInterval) {
+                clearInterval(window.updateInterval);
+            }
+            window.updateInterval = setInterval(fetchPrices, settings.reportInterval * 60 * 1000);
+            
+            tg.showAlert('✅ تنظیمات ذخیره شد');
+        }
+
+        // ==================== مدیریت مودال‌ها ====================
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // بستن مودال با کلیک روی پس‌زمینه
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+
+        // ==================== به‌روزرسانی کلی UI ====================
+        function updateUI() {
+            updatePriceDisplay();
+        }
+
+        // ==================== شروع کار ====================
+        loadData();
+        fetchPrices();
+        
+        // به‌روزرسانی دوره‌ای
+        window.updateInterval = setInterval(fetchPrices, settings.reportInterval * 60 * 1000);
+
+        // دکمه اصلی تلگرام
+        tg.MainButton.setText("📊 بروزرسانی");
+        tg.MainButton.onClick(fetchPrices);
+        tg.MainButton.show();
+
+        // نمایش پیام خوش‌آمد
+        tg.showPopup({
+            title: '🏆 به metals_dashboard خوش آمدید',
+            message: 'این اپلیکیشن به شما امکان پایش لحظه‌ای قیمت طلا و نقره، مدیریت پرتفوی و دریافت هشدار را می‌دهد.',
+            buttons: [{ type: 'ok' }]
+        });
+    </script>
+</body>
+</html>
