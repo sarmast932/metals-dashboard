@@ -1,10 +1,6 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { redis } from "../lib/redis";
+const { redis } = require("../lib/redis");
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+module.exports = async function (req, res) {
   try {
     const key = "test:connection";
     const value = {
@@ -12,10 +8,7 @@ export default async function handler(
       time: Date.now(),
     };
 
-    // ذخیره در Redis
     await redis.set(key, value);
-
-    // خواندن از Redis
     const stored = await redis.get(key);
 
     return res.status(200).json({
@@ -23,10 +16,10 @@ export default async function handler(
       written: value,
       read: stored,
     });
-  } catch (error: any) {
+  } catch (error) {
     return res.status(500).json({
       success: false,
       error: error.message,
     });
   }
-}
+};
