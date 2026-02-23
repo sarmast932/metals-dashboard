@@ -1,8 +1,9 @@
-import { redis } from "../lib/redis";
-import { getAllAlerts } from "../lib/alert-registry";
-import { evaluatePriceCross } from "../lib/alert-engine";
+const { redis } = require("../lib/redis");
+const { getAllAlerts } = require("../lib/alert-registry");
+const { evaluateAlert } = require("../lib/alert-engine");
+const { savePriceSnapshot } = require("../lib/history");
 
-// ⬇️ فعلاً قیمت تستی
+// فعلاً قیمت تستی است — بعداً به price-service واقعی وصل می‌کنیم
 async function getPrices() {
   return {
     gold: 32000000,
@@ -10,45 +11,45 @@ async function getPrices() {
   };
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   try {
-
-    // 1️⃣ گرفتن قیمت
+    // 1️⃣ گرفتن قیمت فعلی
     const prices = await getPrices();
 
-    // 2️⃣ ذخیره در history
+    // 2️⃣ ذخیره snapshot در history
     for (const asset of Object.keys(prices)) {
-      const ts = Date.now();
-      const key = `history:${asset}`;
-      const record = { price: prices[asset], at: ts };
-
-      await redis.zadd(key, {
-        score: ts,
-        member: JSON.stringify(record)
-      });
+      await savePriceSnapshot(asset, prices[asset]);
     }
 
-    // 3️⃣ اجرای alert
+    // 3️⃣ گرفتن همه alertها
     const alerts = await getAllAlerts();
-    let triggered = 0;
 
+    let triggeredCount = 0;
+
+    // 4️⃣ ارزیابی alertها
     for (const alert of alerts) {
       const currentPrice = prices[alert.asset];
-      const isTriggered = await evaluatePriceCross(alert, currentPrice);
+
+      if (!currentPrice) continue;
+
+      const isTriggered = await evaluateAlert(alert, currentPrice);
 
       if (isTriggered) {
-        triggered++;
+        triggeredCount++;
       }
     }
 
     return res.status(200).json({
       success: true,
       prices,
-      triggered
+      triggered: triggeredCount
     });
 
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: error.message });
+    console.error("price-check error:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
-}
+};
