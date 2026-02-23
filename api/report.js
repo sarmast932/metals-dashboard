@@ -1,21 +1,65 @@
-const { generateReport } = require("../lib/history")
+const { generateReportByRange } = require("../lib/history")
+
+function buildSessionRange(session) {
+  const now = new Date()
+  const tehran = new Date(now.getTime() + (3.5 * 60 * 60 * 1000))
+
+  let from = new Date(tehran)
+  let to = new Date(tehran)
+
+  if (session === "morning") {
+    from.setDate(from.getDate() - 1)
+    from.setHours(23,0,0,0)
+    to.setHours(9,0,0,0)
+  }
+  else if (session === "afternoon") {
+    from.setHours(9,0,0,0)
+    to.setHours(16,0,0,0)
+  }
+  else if (session === "night") {
+    from.setHours(16,0,0,0)
+    to.setHours(23,0,0,0)
+  }
+  else {
+    return null
+  }
+
+  return {
+    fromTs: from.getTime() - (3.5 * 60 * 60 * 1000),
+    toTs: to.getTime() - (3.5 * 60 * 60 * 1000)
+  }
+}
 
 module.exports = async function handler(req, res) {
   try {
-    const { asset, hours } = req.query
+    const { asset, session } = req.query
 
-    if (!asset) {
-      return res.status(400).json({ error: "asset required" })
+    if (!asset || !session) {
+      return res.status(400).json({
+        success: false,
+        error: "asset and session required"
+      })
     }
 
-    const report = await generateReport(
+    const range = buildSessionRange(session)
+
+    if (!range) {
+      return res.status(400).json({
+        success: false,
+        error: "invalid session"
+      })
+    }
+
+    const report = await generateReportByRange(
       asset,
-      Number(hours) || 24
+      range.fromTs,
+      range.toTs
     )
 
     if (!report) {
       return res.status(404).json({
-        error: "Not enough data"
+        success: false,
+        error: "no data in this session"
       })
     }
 
