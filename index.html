@@ -1,69 +1,142 @@
 ﻿<!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa">
 <head>
-  <meta charset="UTF-8">
-  <title>Charisma Metals Dashboard</title>
-  <link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8" />
+  <title>داشبورد فلزات کاریزما</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; direction: rtl; background:#f4f6f9; padding:20px }
+    h1 { text-align:center }
+    .card {
+      background:white;
+      padding:20px;
+      margin:20px auto;
+      border-radius:10px;
+      max-width:800px;
+      box-shadow:0 4px 12px rgba(0,0,0,0.1);
+    }
+    .row { display:flex; gap:10px; margin-bottom:15px }
+    select, button {
+      padding:8px;
+      border-radius:6px;
+      border:1px solid #ccc;
+      font-size:14px;
+    }
+    button { cursor:pointer; background:#2d6cdf; color:white; border:none }
+    .positive { color:green }
+    .negative { color:red }
+    .loading { color:gray }
+    canvas { margin-top:20px }
+  </style>
 </head>
 <body>
 
-<header>
-  <h1>داشبورد فلزات کاریزما</h1>
-</header>
+<h1>📊 داشبورد فلزات کاریزما</h1>
 
-<nav class="tabs">
-  <button class="tab-btn active" data-tab="market">بازار</button>
-  <button class="tab-btn" data-tab="portfolio">پرتفو</button>
-  <button class="tab-btn" data-tab="settings">تنظیمات</button>
-</nav>
+<div class="card">
+  <div class="row">
+    <select id="asset">
+      <option value="gold">طلا</option>
+      <option value="silver">نقره</option>
+    </select>
 
-<section id="market" class="tab-content active">
-  <div id="goldMarket" class="card"></div>
-  <div id="silverMarket" class="card"></div>
-</section>
+    <select id="session">
+      <option value="morning">صبح (23-09)</option>
+      <option value="afternoon">عصر (09-16)</option>
+      <option value="night">شب (16-23)</option>
+    </select>
 
-<section id="portfolio" class="tab-content">
-  <div id="goldPortfolioSection" class="card"></div>
-  <div id="silverPortfolioSection" class="card"></div>
-</section>
-
-<section id="settings" class="tab-content">
-
-  <div class="card">
-    <h3>هشدار قیمت</h3>
-
-    <div>
-      <strong>طلا</strong><br>
-      بالاتر از:
-      <input type="number" id="goldAlertHigh">
-      پایین‌تر از:
-      <input type="number" id="goldAlertLow">
-      <button id="saveGoldAlert">ذخیره</button>
-      <button id="clearGoldAlert">حذف</button>
-      <div id="goldAlertStatus"></div>
-    </div>
-
-    <hr>
-
-    <div>
-      <strong>نقره</strong><br>
-      بالاتر از:
-      <input type="number" id="silverAlertHigh">
-      پایین‌تر از:
-      <input type="number" id="silverAlertLow">
-      <button id="saveSilverAlert">ذخیره</button>
-      <button id="clearSilverAlert">حذف</button>
-      <div id="silverAlertStatus"></div>
-    </div>
-
+    <button onclick="loadReport()">دریافت گزارش</button>
   </div>
 
-</section>
+  <div id="report"></div>
 
-<script src="js/data-service.js"></script>
-<script src="js/portfolio-engine.js"></script>
-<script src="js/settings-engine.js"></script>
-<script src="js/app-controller.js"></script>
+  <canvas id="chart"></canvas>
+</div>
+
+<script>
+const reportDiv = document.getElementById("report")
+const ctx = document.getElementById("chart").getContext("2d")
+let chartInstance = null
+
+function formatPrice(p) {
+  return p.toLocaleString("fa-IR")
+}
+
+function formatPercent(p) {
+  return p.toFixed(2) + "%"
+}
+
+async function loadReport() {
+  const asset = document.getElementById("asset").value
+  const session = document.getElementById("session").value
+
+  reportDiv.innerHTML = "<div class='loading'>در حال دریافت...</div>"
+
+  try {
+    const res = await fetch(`/api/report?asset=${asset}&session=${session}`)
+    const json = await res.json()
+
+    if (!json.success) {
+      reportDiv.innerHTML = "❌ داده‌ای موجود نیست"
+      return
+    }
+
+    const r = json.report
+    const changeClass = r.percentChange >= 0 ? "positive" : "negative"
+
+    reportDiv.innerHTML = `
+      <p>قیمت فعلی: ${formatPrice(r.current)}</p>
+      <p>بیشینه: ${formatPrice(r.high)}</p>
+      <p>کمینه: ${formatPrice(r.low)}</p>
+      <p class="${changeClass}">
+        تغییر: ${formatPercent(r.percentChange)}
+      </p>
+    `
+
+    loadChart(asset)
+
+  } catch (err) {
+    reportDiv.innerHTML = "❌ خطا در دریافت اطلاعات"
+  }
+}
+
+async function loadChart(asset) {
+  const res = await fetch(`/api/chart?asset=${asset}`)
+  const json = await res.json()
+
+  if (!json.success) return
+
+  const labels = json.labels.map(ts => {
+    const d = new Date(ts)
+    return d.getHours() + ":" + d.getMinutes()
+  })
+
+  if (chartInstance) {
+    chartInstance.destroy()
+  }
+
+  chartInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: asset,
+        data: json.data,
+        borderWidth: 2,
+        fill: false
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: { display: true },
+        y: { display: true }
+      }
+    }
+  })
+}
+</script>
 
 </body>
-</html> 
+</html>
