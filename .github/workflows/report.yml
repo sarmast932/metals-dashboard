@@ -2,16 +2,36 @@ name: Scheduled Report
 
 on:
   schedule:
-    - cron: '0 6 * * *'   # 09:00 Tehran
-    - cron: '0 13 * * *'  # 16:00 Tehran
-    - cron: '0 20 * * *'  # 23:00 Tehran
+    # 09:00 Tehran (UTC+3:30 → 05:30 UTC)
+    - cron: "30 5 * * *"
+    # 16:00 Tehran (12:30 UTC)
+    - cron: "30 12 * * *"
+    # 23:00 Tehran (19:30 UTC)
+    - cron: "30 19 * * *"
+
   workflow_dispatch:
 
 jobs:
-  call-report:
+  report:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Call Report API
+      - name: Determine Session
+        id: session
         run: |
-          curl -X GET https://metals-dashboard-oxwz.vercel.app/api/scheduled-report
+          HOUR=$(date -u +"%H")
+          MIN=$(date -u +"%M")
+
+          if [ "$HOUR" = "05" ]; then
+            echo "session=morning" >> $GITHUB_OUTPUT
+          elif [ "$HOUR" = "12" ]; then
+            echo "session=afternoon" >> $GITHUB_OUTPUT
+          elif [ "$HOUR" = "19" ]; then
+            echo "session=night" >> $GITHUB_OUTPUT
+          else
+            echo "session=night" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Call Scheduled Report API
+        run: |
+          curl -X GET "https://metals-dashboard-oxwz.vercel.app/api/scheduled-report?session=${{ steps.session.outputs.session }}"
