@@ -1,60 +1,57 @@
-import { sendTelegramMessage } from "./send-telegram.js";
+const { evaluatePriceCross } = require("../lib/alert-engine");
 
-let lastState = {
-  goldAbove: false,
-  silverAbove: false
-};
-
-const GOLD_THRESHOLD = 260000000;   // ریال
-const SILVER_THRESHOLD = 6000000;   // ریال
-
-export default async function handler(req, res) {
-
-  try {
-
-    const goldResponse = await fetch("https://inv.charisma.ir/pub/Plans/Gold");
-    const silverResponse = await fetch("https://inv.charisma.ir/pub/Plans/Silver");
-
-    const goldData = await goldResponse.json();
-    const silverData = await silverResponse.json();
-
-    const goldPrice = goldData.data.latestIndexPrice.index;
-    const silverPrice = silverData.data.latestIndexPrice.index;
-
-    let messages = [];
-
-    // ===== GOLD CHECK =====
-    if (goldPrice > GOLD_THRESHOLD && !lastState.goldAbove) {
-      messages.push(`🔴 هشدار بحرانی طلا\nقیمت از حد تعیین شده عبور کرد.\nقیمت فعلی: ${goldPrice.toLocaleString()} ریال`);
-      lastState.goldAbove = true;
-    }
-
-    if (goldPrice <= GOLD_THRESHOLD) {
-      lastState.goldAbove = false;
-    }
-
-    // ===== SILVER CHECK =====
-    if (silverPrice > SILVER_THRESHOLD && !lastState.silverAbove) {
-      messages.push(`🔴 هشدار بحرانی نقره\nقیمت از حد تعیین شده عبور کرد.\nقیمت فعلی: ${silverPrice.toLocaleString()} ریال`);
-      lastState.silverAbove = true;
-    }
-
-    if (silverPrice <= SILVER_THRESHOLD) {
-      lastState.silverAbove = false;
-    }
-
-    // ===== SEND IF NEEDED =====
-    for (const msg of messages) {
-      await sendTelegramMessage(msg);
-    }
-
-    res.status(200).json({
-      gold: goldPrice,
-      silver: silverPrice,
-      alertsSent: messages.length
-    });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+async function fetchGoldPrice() {
+  // فعلاً قیمت تستی
+  return 32000000;
 }
+
+async function sendTelegram(message) {
+  const BOT_TOKEN = process.env.BOT_TOKEN;
+  const CHAT_ID = process.env.CHAT_ID;
+
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text: message,
+    }),
+  });
+}
+
+module.exports = async function (req, res) {
+  try {
+    const currentPrice = await fetchGoldPrice();
+
+    const alert = {
+      id: "gold-1",
+      asset: "gold",
+      type: "price-cross",
+      direction: "above",
+      threshold: 31000000,
+      level: "critical",
+      enabled: true,
+    };
+
+    const triggered = await evaluatePriceCross(alert, currentPrice);
+
+    if (triggered) {
+      await sendTelegram(
+        `🚨 Gold crossed ${alert.threshold}\nCurrent price: ${currentPrice}`
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      price: currentPrice,
+      alertTriggered: triggered,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
