@@ -40,40 +40,34 @@ function sendTelegram(message) {
   })
 }
 
-function getSessionRange() {
+function buildSessionRange(session) {
   const now = new Date()
-
-  const utcHour = now.getUTCHours()
-  const utcMinute = now.getUTCMinutes()
-
-  // convert to Tehran time
   const tehran = new Date(now.getTime() + (3.5 * 60 * 60 * 1000))
-  const hour = tehran.getHours()
 
   let from = new Date(tehran)
   let to = new Date(tehran)
 
-  if (hour >= 9 && hour < 16) {
-    from.setHours(9,0,0,0)
-    to.setHours(16,0,0,0)
-  }
-  else if (hour >= 16 && hour < 23) {
-    from.setHours(16,0,0,0)
-    to.setHours(23,0,0,0)
-  }
-  else {
-    // شب تا 9 صبح
-    if (hour < 9) {
-      from.setDate(from.getDate() - 1)
-      from.setHours(23,0,0,0)
-      to.setHours(9,0,0,0)
-    } else {
-      from.setHours(23,0,0,0)
-      to.setDate(to.getDate() + 1)
-      to.setHours(9,0,0,0)
-    }
+  if (session === "morning") {
+    from.setDate(from.getDate() - 1)
+    from.setHours(23, 0, 0, 0)
+    to.setHours(9, 0, 0, 0)
   }
 
+  else if (session === "afternoon") {
+    from.setHours(9, 0, 0, 0)
+    to.setHours(16, 0, 0, 0)
+  }
+
+  else if (session === "night") {
+    from.setHours(16, 0, 0, 0)
+    to.setHours(23, 0, 0, 0)
+  }
+
+  else {
+    return null
+  }
+
+  // convert back to UTC timestamp
   return {
     fromTs: from.getTime() - (3.5 * 60 * 60 * 1000),
     toTs: to.getTime() - (3.5 * 60 * 60 * 1000)
@@ -82,10 +76,26 @@ function getSessionRange() {
 
 module.exports = async function handler(req, res) {
   try {
-    const { fromTs, toTs } = getSessionRange()
+    const { session } = req.query
 
-    const goldReport = await generateReportByRange("gold", fromTs, toTs)
-    const silverReport = await generateReportByRange("silver", fromTs, toTs)
+    if (!session) {
+      return res.status(400).json({
+        success: false,
+        error: "session parameter required"
+      })
+    }
+
+    const range = buildSessionRange(session)
+
+    if (!range) {
+      return res.status(400).json({
+        success: false,
+        error: "invalid session value"
+      })
+    }
+
+    const goldReport = await generateReportByRange("gold", range.fromTs, range.toTs)
+    const silverReport = await generateReportByRange("silver", range.fromTs, range.toTs)
 
     if (!goldReport || !silverReport) {
       return res.status(400).json({
@@ -100,7 +110,8 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      session: { fromTs, toTs }
+      session,
+      range
     })
 
   } catch (error) {
