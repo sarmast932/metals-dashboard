@@ -2,9 +2,10 @@ name: Scheduled Report
 
 on:
   schedule:
-    - cron: '0 6 * * *'
-    - cron: '0 13 * * *'
-    - cron: '0 20 * * *'
+    - cron: '0 6 * * *'   # 09:00 Tehran
+    - cron: '0 13 * * *'  # 16:00 Tehran
+    - cron: '0 20 * * *'  # 23:00 Tehran
+  workflow_dispatch:
 
 jobs:
   call-report:
@@ -12,4 +13,5 @@ jobs:
 
     steps:
       - name: Call Report API
-        run: curl https://metals-dashboard-oxwz.vercel.app/api/scheduled-report
+        run: |
+          curl -X GET https://metals-dashboard-oxwz.vercel.app/api/scheduled-report
