@@ -2,7 +2,7 @@ const { evaluatePriceCross } = require("../lib/alert-engine");
 const { getAllAlerts } = require("../lib/alert-registry");
 
 async function fetchGoldPrice() {
-  return 30000000;
+  return 32000000;
 }
 
 async function sendTelegram(message) {
