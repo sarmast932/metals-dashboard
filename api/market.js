@@ -1,5 +1,3 @@
-const fetch = require("node-fetch")
-
 const GOLD_URL = "https://inv.charisma.ir/pub/Plans/Gold"
 const SILVER_URL = "https://inv.charisma.ir/pub/Plans/Silver"
 
@@ -29,6 +27,10 @@ module.exports = async function handler(req, res) {
       fetch(GOLD_URL),
       fetch(SILVER_URL)
     ])
+
+    if (!goldRes.ok || !silverRes.ok) {
+      throw new Error("Charisma API request failed")
+    }
 
     const goldJson = await goldRes.json()
     const silverJson = await silverRes.json()
@@ -63,6 +65,8 @@ module.exports = async function handler(req, res) {
     })
 
   } catch (error) {
+    console.error("market endpoint error:", error)
+
     return res.status(500).json({
       success: false,
       error: error.message
