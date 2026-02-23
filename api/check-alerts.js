@@ -1,7 +1,7 @@
 const { evaluatePriceCross } = require("../lib/alert-engine");
+const { getAllAlerts } = require("../lib/alert-registry");
 
 async function fetchGoldPrice() {
-  // فعلاً قیمت تستی
   return 32000000;
 }
 
@@ -25,28 +25,28 @@ module.exports = async function (req, res) {
   try {
     const currentPrice = await fetchGoldPrice();
 
-    const alert = {
-      id: "gold-1",
-      asset: "gold",
-      type: "price-cross",
-      direction: "above",
-      threshold: 31000000,
-      level: "critical",
-      enabled: true,
-    };
+    const alerts = await getAllAlerts();
 
-    const triggered = await evaluatePriceCross(alert, currentPrice);
+    const triggeredAlerts = [];
 
-    if (triggered) {
-      await sendTelegram(
-        `🚨 Gold crossed ${alert.threshold}\nCurrent price: ${currentPrice}`
-      );
+    for (const alert of alerts) {
+      const triggered = await evaluatePriceCross(alert, currentPrice);
+
+      if (triggered) {
+        triggeredAlerts.push(alert);
+
+        await sendTelegram(
+          `🚨 ${alert.asset.toUpperCase()} crossed ${alert.threshold}
+Current price: ${currentPrice}`
+        );
+      }
     }
 
     return res.status(200).json({
       success: true,
       price: currentPrice,
-      alertTriggered: triggered,
+      totalAlerts: alerts.length,
+      triggeredCount: triggeredAlerts.length,
     });
   } catch (error) {
     return res.status(500).json({
