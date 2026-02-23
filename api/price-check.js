@@ -1,42 +1,37 @@
-const { redis } = require("../lib/redis");
 const { getAllAlerts } = require("../lib/alert-registry");
 const { evaluateAlert } = require("../lib/alert-engine");
 const { savePriceSnapshot } = require("../lib/history");
 
-// فعلاً قیمت تستی است — بعداً به price-service واقعی وصل می‌کنیم
+// نسخه تستی با نوسان تصادفی کوچک
 async function getPrices() {
+  const baseGold = 32000000;
+
+  // نوسان ±0.2٪
+  const randomFactor = 1 + (Math.random() - 0.5) * 0.004;
+
   return {
-    gold: 32000000,
+    gold: Math.floor(baseGold * randomFactor),
     silver: 450000
   };
 }
 
 module.exports = async function handler(req, res) {
   try {
-    // 1️⃣ گرفتن قیمت فعلی
     const prices = await getPrices();
 
-    // 2️⃣ ذخیره snapshot در history
     for (const asset of Object.keys(prices)) {
       await savePriceSnapshot(asset, prices[asset]);
     }
 
-    // 3️⃣ گرفتن همه alertها
     const alerts = await getAllAlerts();
-
     let triggeredCount = 0;
 
-    // 4️⃣ ارزیابی alertها
     for (const alert of alerts) {
       const currentPrice = prices[alert.asset];
-
       if (!currentPrice) continue;
 
       const isTriggered = await evaluateAlert(alert, currentPrice);
-
-      if (isTriggered) {
-        triggeredCount++;
-      }
+      if (isTriggered) triggeredCount++;
     }
 
     return res.status(200).json({
